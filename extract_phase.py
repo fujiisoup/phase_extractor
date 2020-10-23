@@ -5,51 +5,55 @@ import numpy as np
 from scipy import signal, optimize
 
 
-def get_phase(image, config, reference=None):
+def get_phase(image, config, parameters=None):
     """
     retrieve phase from image.
     image: 2d array
     """
     image = image - np.mean(image)
-    fft = np.fft.rfft2(image)
-    kx = np.fft.fftfreq(image.shape[0])
-    ky = np.fft.rfftfreq(image.shape[1])
-    
-    # ------
-    # find the modulation frequency 
-    # ------
-    # make some low frequency component zero
-    fft = np.where((np.abs(kx)[:, np.newaxis] < 0.1) * (np.abs(ky) < 0.2),
-                   0, np.abs(fft))
-    # maximum of the fourier transform
-    idx = np.unravel_index(np.argmax(fft), shape=fft.shape)
-    kx_max = kx[idx[0]]
-    ky_max = ky[idx[1]]
-
-    roi_fraction = float(config['parameters']['roi_fraction'])
-    sl_x = slice(
-        int(image.shape[0] * (0.5 - 0.5 * roi_fraction)),
-        int(image.shape[0] * (0.5 + 0.5 * roi_fraction))
-    )
-    sl_y = slice(
-        int(image.shape[1] * (0.5 - 0.5 * roi_fraction)),
-        int(image.shape[1] * (0.5 + 0.5 * roi_fraction))
-    )
     x = np.arange(image.shape[0])[:, np.newaxis]
     y = np.arange(image.shape[1])
-    
-    parameters = {}
 
-    # maximize the modulation frequency
-    def func(p):
-        kx, ky = p
-        wave = np.exp(2j * np.pi * (kx * x + ky * y))
-        return np.mean(np.abs(image * wave)[sl_x, sl_y])
+    if parameters is None:
+        fft = np.fft.rfft2(image)
+        kx = np.fft.fftfreq(image.shape[0])
+        ky = np.fft.rfftfreq(image.shape[1])
+
+        # ------
+        # find the modulation frequency 
+        # ------
+        # make some low frequency component zero
+        fft = np.where((np.abs(kx)[:, np.newaxis] < 0.1) * (np.abs(ky) < 0.2),
+                    0, np.abs(fft))
+        # maximum of the fourier transform
+        idx = np.unravel_index(np.argmax(fft), shape=fft.shape)
+        kx_max = kx[idx[0]]
+        ky_max = ky[idx[1]]
+
+        roi_fraction = float(config['parameters']['roi_fraction'])
+        sl_x = slice(
+            int(image.shape[0] * (0.5 - 0.5 * roi_fraction)),
+            int(image.shape[0] * (0.5 + 0.5 * roi_fraction))
+        )
+        sl_y = slice(
+            int(image.shape[1] * (0.5 - 0.5 * roi_fraction)),
+            int(image.shape[1] * (0.5 + 0.5 * roi_fraction))
+        )
+        
+        parameters = {}
+
+        # maximize the modulation frequency
+        def func(p):
+            kx, ky = p
+            wave = np.exp(2j * np.pi * (kx * x + ky * y))
+            return np.mean(np.abs(image * wave)[sl_x, sl_y])
+        
+        kx_max, ky_max = optimize.minimize(func, x0=(kx_max, ky_max)).x
+        parameters['kx'] = kx_max
+        parameters['ky'] = ky_max
     
-    kx_max, ky_max = optimize.minimize(func, x0=(kx_max, ky_max)).x
+    kx_max, ky_max = parameters['kx'], parameters['ky']
     wave = np.exp(2j * np.pi * (kx_max * x + ky_max * y))
-    parameters['kx'] = kx_max
-    parameters['ky'] = ky_max
     
     # convolute the window function
     n_waves = float(config['parameters']['n_waves'])
@@ -61,7 +65,14 @@ def get_phase(image, config, reference=None):
     convolved = signal.convolve(
         image * wave, window, mode='valid', method='direct')
     
-    return parameters, np.abs(convolved), np.angle(convolved)
+    return parameters, convolved
+
+
+def get_phase_from_reference(image, source):
+    """
+    Retrieve phase from an image with the aid of the source image.
+    """
+    return image * np.exp(-1j * np.angle(source))
 
 
 def save_array(array, src_path, suffix):
@@ -88,6 +99,20 @@ if __name__ == '__main__':
     if len(sys.argv) == 2:
         path = sys.argv[1]
         image = PIL.Image.open(path)
-        _, amplitude, phase = get_phase(np.array(image), config, reference=None)
+        _, convolved = get_phase(np.array(image), config, parameters=None)
+        amplitude, phase = np.abs(convolved), np.angle(convolved)
+        save_array(amplitude, path, '_amp')
+        save_array(phase, path, '_phase')
+
+    if len(sys.argv) == 3:
+        path = sys.argv[1]
+        image = PIL.Image.open(path)
+        parameters, reference_conv = get_phase(np.array(image), config, parameters=None)
+
+        path = sys.argv[2]
+        image = PIL.Image.open(path)
+        _, target_conv = get_phase(np.array(image), config, parameters=parameters)
+
+        amplitude, phase = np.abs(target_conv), np.angle(target_conv)
         save_array(amplitude, path, '_amp')
         save_array(phase, path, '_phase')
