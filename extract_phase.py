@@ -87,32 +87,29 @@ def save_array(array, src_path, suffix):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) not in [2, 3]:
+    if len(sys.argv) < 2:
         raise ValueError(
             'Usage: get_phase.py [path/to/image]'
-            'or \nget_phase.py [path/to/image] [path/to/reference image]'
+            'or \nget_phase.py [path/to/reference_image] [path/to/target_image1] ...'
         )
     
     config = ConfigParser()
     config.read('settings.ini')
 
+    path = sys.argv[1]
+    image = PIL.Image.open(path)
+    parameters, convolved = get_phase(np.array(image), config, parameters=None)
+    amplitude, phase = np.abs(convolved), np.angle(convolved)
+
     if len(sys.argv) == 2:
-        path = sys.argv[1]
-        image = PIL.Image.open(path)
-        _, convolved = get_phase(np.array(image), config, parameters=None)
-        amplitude, phase = np.abs(convolved), np.angle(convolved)
         save_array(amplitude, path, '_amp')
         save_array(phase, path, '_phase')
 
-    if len(sys.argv) == 3:
-        path = sys.argv[1]
-        image = PIL.Image.open(path)
-        parameters, reference_conv = get_phase(np.array(image), config, parameters=None)
+    else:
+        for path in sys.argv[2:]:
+            image = PIL.Image.open(path)
+            _, target_conv = get_phase(np.array(image), config, parameters=parameters)
 
-        path = sys.argv[2]
-        image = PIL.Image.open(path)
-        _, target_conv = get_phase(np.array(image), config, parameters=parameters)
-
-        amplitude, phase = np.abs(target_conv), np.angle(target_conv)
-        save_array(amplitude, path, '_amp')
-        save_array(phase, path, '_phase')
+            amplitude, phase = np.abs(target_conv), np.angle(target_conv)
+            save_array(amplitude, path, '_amp')
+            save_array(phase, path, '_phase')

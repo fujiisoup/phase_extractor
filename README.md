@@ -22,7 +22,7 @@ This saves the extracted value as an image file with suffix `_amp` (for amplitud
 
 ### Phase difference from an reference image
 ```
-python extract_phase.py [path/to/reference_image] [path/to/target_image]
+python extract_phase.py [path/to/reference_image] [path/to/target_image1] [path/to/target_image2] ...
 ```
 
 
