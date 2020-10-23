@@ -72,8 +72,6 @@ def save_array(array, src_path, suffix):
         ((array - vmin) / (vmax - vmin) * 255).astype(np.uint8)
     )
     outpath = src_path[:src_path.rfind('.')] + suffix + '.bmp'
-    print(outpath)
-    image.show()
     image.save(outpath, format='bmp')
 
 
