@@ -23,8 +23,9 @@ def get_phase(image, config, parameters=None):
         # find the modulation frequency 
         # ------
         # make some low frequency component zero
-        fft = np.where((np.abs(kx)[:, np.newaxis] < 0.1) * (np.abs(ky) < 0.2),
-                    0, np.abs(fft))
+        fft = np.where(
+            (np.abs(kx)[:, np.newaxis] < 0.1) * (np.abs(ky) < 0.1),
+            0, np.abs(fft))
         # maximum of the fourier transform
         idx = np.unravel_index(np.argmax(fft), shape=fft.shape)
         kx_max = kx[idx[0]]
@@ -72,7 +73,7 @@ def get_phase_from_reference(image, source):
     """
     Retrieve phase from an image with the aid of the source image.
     """
-    return image * np.exp(-1j * np.angle(source))
+    return np.angle(image * np.exp(-1j * np.angle(source)))
 
 
 def save_array(array, src_path, suffix):
@@ -110,6 +111,8 @@ if __name__ == '__main__':
             image = PIL.Image.open(path)
             _, target_conv = get_phase(np.array(image), config, parameters=parameters)
 
-            amplitude, phase = np.abs(target_conv), np.angle(target_conv)
-            save_array(amplitude, path, '_amp')
-            save_array(phase, path, '_phase')
+            target_amplitude = np.abs(target_conv)
+            target_phase = get_phase_from_reference(
+                target_conv, convolved)
+            save_array(target_amplitude, path, '_amp')
+            save_array(target_phase, path, '_phase')
