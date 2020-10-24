@@ -54,8 +54,7 @@ def get_phase(image, config, parameters=None):
             result = optimize.minimize(
                 func, x0=(kx_max, ky_max),
                 method=optimize_method)
-        
-        kx_max, ky_max = result.x
+            kx_max, ky_max = result.x
         parameters['kx'] = kx_max
         parameters['ky'] = ky_max
     
