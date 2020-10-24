@@ -49,7 +49,13 @@ def get_phase(image, config, parameters=None):
             wave = np.exp(2j * np.pi * (kx * x + ky * y))
             return -np.mean(np.abs(image * wave)[sl_x, sl_y])
         
-        kx_max, ky_max = optimize.minimize(func, x0=(kx_max, ky_max)).x
+        optimize_method = config['parameters']['optimize_method'].strip()
+        if optimize_method != 'none':
+            result = optimize.minimize(
+                func, x0=(kx_max, ky_max),
+                method=optimize_method)
+        
+        kx_max, ky_max = result.x
         parameters['kx'] = kx_max
         parameters['ky'] = ky_max
     
