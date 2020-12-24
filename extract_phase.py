@@ -81,15 +81,23 @@ def get_phase_from_reference(image, source):
     return np.angle(image * np.exp(-1j * np.angle(source)))
 
 
-def save_array(array, src_path, suffix):
-    # squish array into 0-255 range
-    vmin = np.min(array)
-    vmax = np.max(array)
-    image = PIL.Image.fromarray(
-        ((array - vmin) / (vmax - vmin) * 255).astype(np.uint8)
-    )
-    outpath = src_path[:src_path.rfind('.')] + suffix + '.bmp'
-    image.save(outpath, format='bmp')
+def save_array(array, src_path, suffix, image_format='bmp'):
+    if isinstance(image_format, (list, tuple)):
+        for img_format in image_format:
+            save_array(array, src_path, suffix, image_format=img_format)
+        return
+
+    outpath = src_path[:src_path.rfind('.')] + suffix + '.' + image_format
+    if image_format in ['bmp', 'png']:
+        # squish array into 0-255 range
+        vmin = np.min(array)
+        vmax = np.max(array)
+        image = PIL.Image.fromarray(
+            ((array - vmin) / (vmax - vmin) * 255).astype(np.uint8)
+        )
+        image.save(outpath, format=image_format)
+    elif image_format == 'csv':
+        np.savetxt(outpath, array, fmt='%10.5f', delimiter=',')
 
 
 if __name__ == '__main__':
@@ -101,6 +109,9 @@ if __name__ == '__main__':
     
     config = ConfigParser()
     config.read('settings.ini')
+    image_format = config['output']['format'].strip()
+    if ',' in image_format:
+        image_format = [img_format.strip() for img_format in image_format.split(',')]
 
     path = sys.argv[1]
     image = PIL.Image.open(path)
@@ -108,8 +119,8 @@ if __name__ == '__main__':
     amplitude, phase = np.abs(convolved), np.angle(convolved)
 
     if len(sys.argv) == 2:
-        save_array(amplitude, path, '_amp')
-        save_array(phase, path, '_phase')
+        save_array(amplitude, path, '_amp', image_format=image_format)
+        save_array(phase, path, '_phase', image_format=image_format)
 
     else:
         for path in sys.argv[2:]:
@@ -119,5 +130,5 @@ if __name__ == '__main__':
             target_amplitude = np.abs(target_conv)
             target_phase = get_phase_from_reference(
                 target_conv, convolved)
-            save_array(target_amplitude, path, '_amp')
-            save_array(target_phase, path, '_phase')
+            save_array(target_amplitude, path, '_amp', image_format=image_format)
+            save_array(target_phase, path, '_phase', image_format=image_format)
