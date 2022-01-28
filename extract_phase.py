@@ -1,5 +1,7 @@
 import sys
 from configparser import ConfigParser
+import os
+import glob
 import PIL.Image
 import numpy as np
 from scipy import signal, optimize
@@ -86,7 +88,7 @@ def save_array(array, src_path, suffix, image_format='bmp'):
         for img_format in image_format:
             save_array(array, src_path, suffix, image_format=img_format)
         return
-
+        
     outpath = src_path[:src_path.rfind('.')] + suffix + '.' + image_format
     if image_format in ['bmp', 'png']:
         # squish array into 0-255 range
@@ -100,11 +102,22 @@ def save_array(array, src_path, suffix, image_format='bmp'):
         np.savetxt(outpath, array, fmt='%10.5f', delimiter=',')
 
 
+def save_video(arrays, src_path, suffix, video_format='avi'):
+    raise NotImplementedError
+
+def _video2images(video, config):
+    raise NotImplementedError
+
+__VIDEO_EXTENSIONS__ = ['.avi', '.mp4']
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         raise ValueError(
-            'Usage: get_phase.py [path/to/image]'
-            'or \nget_phase.py [path/to/reference_image] [path/to/target_image1] ...'
+            'Usage: get_phase.py [path/to/image] '
+            'or \nget_phase.py [path/to/reference_image] [path/to/target_image1] ... '
+            '\n  [NOTE] target_image1 can include the wild cards.'
+            '\n         e.g. step[0-9][0-9].bmp will cover step01.bmp, step02.bmp, ..., step99.bmp'
+            'or \nget_phase.py [path/to/video] reference_frames(e.g. 1,2 or 1-10)'
         )
     
     config = ConfigParser()
@@ -114,6 +127,9 @@ if __name__ == '__main__':
         image_format = [img_format.strip() for img_format in image_format.split(',')]
 
     path = sys.argv[1]
+    video_images = []
+    if any(ex in path for ex in __VIDEO_EXTENSIONS__):  # video
+        image, video_images = _video2images(path)
     image = PIL.Image.open(path)
     parameters, convolved = get_phase(np.array(image), config, parameters=None)
     amplitude, phase = np.abs(convolved), np.angle(convolved)
@@ -122,8 +138,28 @@ if __name__ == '__main__':
         save_array(amplitude, path, '_amp', image_format=image_format)
         save_array(phase, path, '_phase', image_format=image_format)
 
+    elif len(video_images) > 1:  # video
+        image_format = config['output']['video_format'].strip()
+        target_amplitudes = []
+        target_phases = []
+        for image in video_images:
+            image = PIL.Image.open(path)
+            _, target_conv = get_phase(np.array(image), config, parameters=parameters)
+
+            target_amplitudes.append(np.abs(target_conv))
+            target_phases.append(
+                get_phase_from_reference(target_conv, convolved)
+            )
+        save_video(target_amplitudes, path, '_amp', image_format=image_format)
+        save_video(target_phases, path, '_phase', image_format=image_format)
+    
     else:
+        paths = []
         for path in sys.argv[2:]:
+            paths += glob.glob(path)
+        print("converting ", paths)
+            
+        for path in paths:
             image = PIL.Image.open(path)
             _, target_conv = get_phase(np.array(image), config, parameters=parameters)
 
