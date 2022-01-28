@@ -2,6 +2,7 @@ import sys
 from configparser import ConfigParser
 import os
 import glob
+import time
 import PIL.Image
 import numpy as np
 from scipy import signal, optimize
@@ -166,6 +167,7 @@ if __name__ == '__main__':
 
     path = sys.argv[1]
     video_images = None
+    started = time.time()
     if any(ex in path for ex in __VIDEO_EXTENSIONS__):  # video
         image, video_images = _video2images(path)
     else:
@@ -181,16 +183,19 @@ if __name__ == '__main__':
         image_format = config['output']['video_format'].strip()
         target_amplitudes = []
         target_phases = []
-        for image in video_images:
-            _, target_conv = get_phase(np.array(image), config, parameters=parameters)
 
-            target_amplitudes.append(np.abs(target_conv))
-            target_phases.append(
-                get_phase_from_reference(target_conv, convolved)
-            )
-        save_video(target_amplitudes, path, '_amp', video_format='avi')
+        print(time.time() - started, 'video loaded')
+        _, target_conv = get_phase(np.array(video_images), config, parameters=parameters)
+        print(time.time() - started, 'phase extracted')
+
+        target_phases = get_phase_from_reference(target_conv, convolved)
         save_video(target_phases, path, '_phase', video_format='avi')
-    
+        print(time.time() - started, 'phase saved')
+
+        target_amplitudes = np.abs(target_conv)
+        save_video(target_amplitudes, path, '_amp', video_format='avi')
+        print(time.time() - started, 'amplitude saved')
+            
     else:
         paths = []
         for path in sys.argv[2:]:
