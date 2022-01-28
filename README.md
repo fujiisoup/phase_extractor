@@ -15,6 +15,9 @@ This script requires
 + numpy
 + scipy
 
+**opencv** is necessary for read/write movie files.
+
+
 ## Usage
 
 ```
@@ -28,6 +31,12 @@ This saves the extracted value as an image file with suffix `_amp` (for amplitud
 ```
 python extract_phase.py [path/to/reference_image] [path/to/target_image1] [path/to/target_image2] ...
 ```
+
+The wild cards can be used to scan the files. For example,
+```
+python extract_phase.py [path/to/reference_image] path/to/target[0-9][0-9].bmp ...
+```
+converts the files `path/to/target01.bmp`, `path/to/target02.bmp`, ..., `path/to/target99.bmp`.
 
 ## Detailed tuning
 
