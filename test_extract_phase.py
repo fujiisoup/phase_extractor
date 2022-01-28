@@ -17,3 +17,4 @@ def test_getphase():
     image = PIL.Image.open('data/wo_step.bmp')
     paramters, convolved = get_phase(
         np.array(image), config, parameters)
+

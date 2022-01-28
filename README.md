@@ -5,6 +5,7 @@ This contains a simple script to extract the local phase values from the image w
 ## Example
 
 **original / extracted phase image**
+
 <img src="data/step.bmp" alt="original" width="150">
 <img src="data/step_phase.bmp" alt="phase" width="150">
 
@@ -16,6 +17,13 @@ This script requires
 + scipy
 
 **opencv** is necessary for read/write movie files.
+
+In anaconda environment, do
+```
+conda install -c conda-forge opencv
+```
+
+**skimage** is necessary to unwrap the phase from the file.
 
 
 ## Usage

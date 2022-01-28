@@ -6,6 +6,12 @@ import PIL.Image
 import numpy as np
 from scipy import signal, optimize
 
+try:
+    import cv2
+    __HAS_OPENCV__ = True
+except ImportError:
+    __HAS_OPENCV__ = False
+
 
 def get_phase(image, config, parameters=None):
     """
@@ -103,10 +109,37 @@ def save_array(array, src_path, suffix, image_format='bmp'):
 
 
 def save_video(arrays, src_path, suffix, video_format='avi'):
-    raise NotImplementedError
+    outpath = src_path[:src_path.rfind('.')] + suffix + '.' + video_format
+    print(arrays[0].shape)
+    out = cv2.VideoWriter(outpath, cv2.VideoWriter_fourcc(*'DIVX'), 15, arrays[0].shape) 
+    for array in arrays:
+        vmin = np.min(array)
+        vmax = np.max(array)
+        array = ((array - vmin) / (vmax - vmin) * 255).astype(np.uint8)
+        out.write(array)
+    out.release()
 
-def _video2images(video, config):
-    raise NotImplementedError
+
+def _video2images(video):
+    if not __HAS_OPENCV__:
+        raise ImportError(
+            "Open cv must be installed to read video.\n"
+        )
+
+    vidcap = cv2.VideoCapture(video)
+    success, image = vidcap.read()
+    count = 0
+    images = []
+    while success:
+        success, image = vidcap.read()
+        image = np.array(image)
+        # here we just use the r channel. Maybe we need something here
+        if image.ndim == 3:
+            image = image[..., 0]
+        if success:
+            images.append(image)
+    return images[0], images
+
 
 __VIDEO_EXTENSIONS__ = ['.avi', '.mp4']
 
@@ -123,35 +156,36 @@ if __name__ == '__main__':
     config = ConfigParser()
     config.read('settings.ini')
     image_format = config['output']['format'].strip()
+    video_format = config['output'].get('video_format').strip()
     if ',' in image_format:
         image_format = [img_format.strip() for img_format in image_format.split(',')]
 
     path = sys.argv[1]
-    video_images = []
+    video_images = None
     if any(ex in path for ex in __VIDEO_EXTENSIONS__):  # video
         image, video_images = _video2images(path)
-    image = PIL.Image.open(path)
+    else:
+        image = PIL.Image.open(path)
     parameters, convolved = get_phase(np.array(image), config, parameters=None)
     amplitude, phase = np.abs(convolved), np.angle(convolved)
 
-    if len(sys.argv) == 2:
+    if len(sys.argv) == 2 and video_images is None:
         save_array(amplitude, path, '_amp', image_format=image_format)
         save_array(phase, path, '_phase', image_format=image_format)
 
-    elif len(video_images) > 1:  # video
+    elif video_images is not None:  # video
         image_format = config['output']['video_format'].strip()
         target_amplitudes = []
         target_phases = []
         for image in video_images:
-            image = PIL.Image.open(path)
             _, target_conv = get_phase(np.array(image), config, parameters=parameters)
 
             target_amplitudes.append(np.abs(target_conv))
             target_phases.append(
                 get_phase_from_reference(target_conv, convolved)
             )
-        save_video(target_amplitudes, path, '_amp', image_format=image_format)
-        save_video(target_phases, path, '_phase', image_format=image_format)
+        save_video(target_amplitudes, path, '_amp', video_format='avi')
+        save_video(target_phases, path, '_phase', video_format='avi')
     
     else:
         paths = []
