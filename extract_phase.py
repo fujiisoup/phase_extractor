@@ -16,13 +16,15 @@ except ImportError:
 def get_phase(image, config, parameters=None):
     """
     retrieve phase from image.
-    image: 2d array
+    image: 2d array or 3d array for batch conversion
     """
-    image = image - np.mean(image)
-    x = np.arange(image.shape[0])[:, np.newaxis]
-    y = np.arange(image.shape[1])
+    image = image - np.mean(image, axis=(-2, -1), keepdims=True)
+    x = np.arange(image.shape[-2])[:, np.newaxis]
+    y = np.arange(image.shape[-1])
 
     if parameters is None:
+        if image.ndim == 3:
+            raise ValueError('For the parameter estimation, use 2d array')
         fft = np.fft.rfft2(image)
         kx = np.fft.fftfreq(image.shape[0])
         ky = np.fft.rfftfreq(image.shape[1])
@@ -76,6 +78,8 @@ def get_phase(image, config, parameters=None):
     window = window[:, np.newaxis] * window
     window = window * n**2 / np.sum(window)
 
+    if image.ndim == 3:
+        window = window[np.newaxis]
     convolved = signal.convolve(
         image * wave, window, mode='valid', method='direct')
     
@@ -193,12 +197,14 @@ if __name__ == '__main__':
             paths += glob.glob(path)
         print("converting ", paths)
             
-        for path in paths:
-            image = PIL.Image.open(path)
-            _, target_conv = get_phase(np.array(image), config, parameters=parameters)
+        images = [np.array(PIL.Image.open(path)) for path in paths]
+        _, target_conv = get_phase(np.array(images), config, parameters=parameters)
 
-            target_amplitude = np.abs(target_conv)
-            target_phase = get_phase_from_reference(
-                target_conv, convolved)
+        target_amplitudes = np.abs(target_conv)
+        target_phases = get_phase_from_reference(
+            target_conv, convolved)
+        for path, target_amplitude, target_phase in zip(
+            paths, target_amplitudes, target_phases
+        ):
             save_array(target_amplitude, path, '_amp', image_format=image_format)
             save_array(target_phase, path, '_phase', image_format=image_format)

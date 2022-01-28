@@ -3,6 +3,8 @@ __pycache__
 
 data/*_amp.bmp
 data/*_phase.bmp
+data/*_amp.avi
+data/*_phase.avi
 !data/step_phase.bmp
 
 data/*.csv
