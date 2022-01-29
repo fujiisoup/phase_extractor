@@ -1,3 +1,4 @@
+from inspect import unwrap
 import sys
 from configparser import ConfigParser
 import os
@@ -101,6 +102,11 @@ def get_phase_from_reference(image, source):
     return np.angle(image * np.exp(-1j * np.angle(source)))
 
 
+def unwrap_phase(image):
+    from skimage.restoration import unwrap_phase
+    return unwrap_phase(image)
+
+
 def save_array(array, src_path, suffix, image_format='bmp'):
     if isinstance(image_format, (list, tuple)):
         for img_format in image_format:
@@ -183,8 +189,12 @@ if __name__ == '__main__':
     parameters, convolved = get_phase(np.array(image), config, parameters=None)
     amplitude, phase = np.abs(convolved), np.angle(convolved)
 
+    will_unwrap = config['postprocess']['unwrap'] == 'True'
+
     if len(sys.argv) == 2 and video_images is None:
         save_array(amplitude, path, '_amp', image_format=image_format)
+        if will_unwrap:
+            phase = unwrap_phase(phase)
         save_array(phase, path, '_phase', image_format=image_format)
 
     elif video_images is not None:  # video
@@ -205,6 +215,12 @@ if __name__ == '__main__':
             target_conv = np.concatenate(target_conv, axis=0)
 
         target_phases = get_phase_from_reference(target_conv, convolved)
+        if will_unwrap:
+            target_phases = np.clip(
+                unwrap_phase(target_phases),
+                float(config['postprocess']['unwrap_phase_min']),
+                float(config['postprocess']['unwrap_phase_max'])
+            )
         save_video(target_phases, path, '_phase', video_format='avi')
 
         target_amplitudes = np.abs(target_conv)
@@ -220,8 +236,14 @@ if __name__ == '__main__':
         _, target_conv = get_phase(np.array(images), config, parameters=parameters)
 
         target_amplitudes = np.abs(target_conv)
-        target_phases = get_phase_from_reference(
-            target_conv, convolved)
+        target_phases = get_phase_from_reference(target_conv, convolved)
+        if will_unwrap:
+            target_phases = np.clip(
+                unwrap_phase(target_phases),
+                float(config['postprocess']['unwrap_phase_min']),
+                float(config['postprocess']['unwrap_phase_max'])
+            )
+
         for path, target_amplitude, target_phase in zip(
             paths, target_amplitudes, target_phases
         ):
