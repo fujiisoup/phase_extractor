@@ -75,16 +75,23 @@ def get_phase(image, config, parameters=None):
     # convolute the window function
     n_waves = float(config['parameters']['n_waves'])
     n = int(n_waves / np.sqrt(kx_max**2 + ky_max**2))
-    window = getattr(signal, config['parameters']['window'])(n)
-    window = window[:, np.newaxis] * window
-    window = window * n**2 / np.sum(window)
 
+    # defining weight
+    window = getattr(signal, config['parameters']['window'])(n)
+    window2d = window[:, np.newaxis] * window
+    weight = np.sum(window2d) / n**2
     if image.ndim == 3:
         window = window[np.newaxis]
+
+    convolved = image * wave
+    # along x-direction
     convolved = signal.convolve(
-        image * wave, window, mode='valid', method='direct')
+        convolved, window[..., np.newaxis], mode='same', method='auto')
+    # along y-direction
+    convolved = signal.convolve(
+        convolved, window[..., np.newaxis, :], mode='same', method='auto')
     
-    return parameters, convolved
+    return parameters, convolved / weight
 
 
 def get_phase_from_reference(image, source):
@@ -114,15 +121,17 @@ def save_array(array, src_path, suffix, image_format='bmp'):
 
 
 def save_video(arrays, src_path, suffix, video_format='avi'):
+    print(arrays.shape)
     outpath = src_path[:src_path.rfind('.')] + suffix + '.' + video_format
-    print(arrays[0].shape)
-    out = cv2.VideoWriter(outpath, cv2.VideoWriter_fourcc(*'DIVX'), 15, arrays[0].shape) 
+    height, width = arrays.shape[1:]
+    video = cv2.VideoWriter(outpath, cv2.VideoWriter_fourcc(*'DIVX'), 15.0, (width, height)) 
     for array in arrays:
         vmin = np.min(array)
         vmax = np.max(array)
         array = ((array - vmin) / (vmax - vmin) * 255).astype(np.uint8)
-        out.write(array)
-    out.release()
+        array = np.stack([array, array, array], axis=-1)
+        video.write(array)
+    video.release()
 
 
 def _video2images(video):
