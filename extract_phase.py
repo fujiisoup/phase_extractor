@@ -121,7 +121,6 @@ def save_array(array, src_path, suffix, image_format='bmp'):
 
 
 def save_video(arrays, src_path, suffix, video_format='avi'):
-    print(arrays.shape)
     outpath = src_path[:src_path.rfind('.')] + suffix + '.' + video_format
     height, width = arrays.shape[1:]
     video = cv2.VideoWriter(outpath, cv2.VideoWriter_fourcc(*'DIVX'), 15.0, (width, height)) 
@@ -193,17 +192,23 @@ if __name__ == '__main__':
         target_amplitudes = []
         target_phases = []
 
-        print(time.time() - started, 'video loaded')
-        _, target_conv = get_phase(np.array(video_images), config, parameters=parameters)
-        print(time.time() - started, 'phase extracted')
+        num_batch = int(config['computation']['num_batch'])
+        if num_batch < 0:  # compute full batch
+            _, target_conv = get_phase(np.array(video_images), config, parameters=parameters)
+        else:
+            target_conv = []
+            for i in range(0, len(video_images), num_batch):
+                target_conv.append(get_phase(
+                    np.stack(video_images[i: i + num_batch], axis=0), 
+                    config, parameters=parameters)[1]
+                )
+            target_conv = np.concatenate(target_conv, axis=0)
 
         target_phases = get_phase_from_reference(target_conv, convolved)
         save_video(target_phases, path, '_phase', video_format='avi')
-        print(time.time() - started, 'phase saved')
 
         target_amplitudes = np.abs(target_conv)
         save_video(target_amplitudes, path, '_amp', video_format='avi')
-        print(time.time() - started, 'amplitude saved')
             
     else:
         paths = []
