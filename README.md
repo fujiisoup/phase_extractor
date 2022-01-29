@@ -46,6 +46,13 @@ python extract_phase.py [path/to/reference_image] path/to/target[0-9][0-9].bmp .
 ```
 converts the files `path/to/target01.bmp`, `path/to/target02.bmp`, ..., `path/to/target99.bmp`.
 
+The video can be also used for the phase retrieval.
+```
+python extract_phase.py [path/to/video_file]
+```
+
+In this case, the first frame will be used for the reference image.
+
 ## Detailed tuning
 
 See `settings.ini`.
