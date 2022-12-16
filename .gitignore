@@ -8,3 +8,4 @@ data/*_phase.avi
 !data/step_phase.bmp
 
 data/*.csv
+*.code-workspace

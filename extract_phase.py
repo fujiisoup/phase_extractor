@@ -74,23 +74,38 @@ def get_phase(image, config, parameters=None):
     wave = np.exp(2j * np.pi * (kx_max * x + ky_max * y))
     
     # convolute the window function
-    n_waves = float(config['parameters']['n_waves'])
-    n = int(n_waves / np.sqrt(kx_max**2 + ky_max**2))
+    # check if different size is specified in x and y directions.
+    if ',' in config['parameters']['n_waves']:
+        n_waves = config['parameters']['n_waves'].split(',')
+        nx_waves = float(n_waves[0])
+        ny_waves = float(n_waves[1])
+        nx = int(nx_waves / np.sqrt(kx_max**2 + ky_max**2))
+        ny = int(nx_waves / np.sqrt(kx_max**2 + ky_max**2))
+        n = np.sqrt(nx**2 +  ny**2)
+    else:
+        n_waves = float(config['parameters']['n_waves'])
+        nx_waves = n_waves
+        ny_waves = n_waves
+        n = int(n_waves / np.sqrt(kx_max**2 + ky_max**2))
+        nx = n
+        ny = n
 
     # defining weight
-    window = getattr(signal, config['parameters']['window'])(n)
-    window2d = window[:, np.newaxis] * window
+    window_x = getattr(signal, config['parameters']['window'])(nx)
+    window_y = getattr(signal, config['parameters']['window'])(ny)
+    window2d = window_x[:, np.newaxis] * window_y
     weight = np.sum(window2d) / n**2
     if image.ndim == 3:
-        window = window[np.newaxis]
+        window_x = window_x[np.newaxis]
+        window_y = window_y[np.newaxis]
 
     convolved = image * wave
     # along x-direction
     convolved = signal.convolve(
-        convolved, window[..., np.newaxis], mode='same', method='auto')
+        convolved, window_x[..., np.newaxis], mode='same', method='auto')
     # along y-direction
     convolved = signal.convolve(
-        convolved, window[..., np.newaxis, :], mode='same', method='auto')
+        convolved, window_y[..., np.newaxis, :], mode='same', method='auto')
     
     return parameters, convolved / weight
 
